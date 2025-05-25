@@ -91,6 +91,11 @@ fileOpenButton.addEventListener('click', async () => {
 });
 
 (async function init() {
+  if (!('LanguageModel' in self)) {
+    document.body.append("😿 This browser doesn't support the Prompt API.");
+    return;
+  }
+
   await initializeSQLite();
 
   const { defaultTopK: topK, defaultTemperature: temperature } =

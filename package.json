@@ -8,7 +8,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "prettier": "prettier --write ."
+    "prettier": "prettier --write .",
+    "deploy": "npm run prettier && npm run build && git add . && git commit -m 'Deploy' && git push"
   },
   "dependencies": {
     "@sqlite.org/sqlite-wasm": "^3.49.2-build1",
