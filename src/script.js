@@ -24,7 +24,7 @@ if ('serviceWorker' in navigator) {
           registration.scope,
         );
         registration.addEventListener('updatefound', () => location.reload());
-        //if (registration.active && !navigator.serviceWorker.controller) location.reload();
+        if (registration.active && !navigator.serviceWorker.controller) location.reload();
       })
       .catch((error) => {
         console.error('Service Worker registration failed:', error);
