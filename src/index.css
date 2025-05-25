@@ -23,13 +23,14 @@ body {
   margin: auto;
 }
 
-fieldset:has(legend + *:empty) {
-  display: none;
-}
-
 form,
 fieldset {
   margin-block-end: 1rem;
+}
+
+ul {
+  list-style: none;
+  padding-inline-start: 0;
 }
 
 details,
@@ -56,16 +57,112 @@ details[open] summary {
   display: none;
 }
 
-li {
-  white-space: pre-wrap;
+.user,
+.assistant {
+  padding: 1rem;
 }
 
-.user {
-  color: lime;
+@media (prefers-color-scheme: light) {
+  .user {
+    background-color: #ccc;
+  }
+
+  .assistant {
+    background-color: #eee;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .user {
+    background-color: #222;
+  }
+
+  .assistant {
+    background-color: #333;
+  }
+}
+
+.user::before {
+  content: "👤 You:";
   font-weight: bold;
 }
 
-.assistant {
-  color: red;
-  margin-block-end: 2rem;
+.assistant::before {
+  content: "🤖 AI:";
+  font-weight: bold;
+}
+
+.item {
+  pre {
+    position: relative;
+  }
+
+  .javascript::before,
+  .js::before,
+  .java::before,
+  .cpp::before,
+  .c::before,
+  .bash::before,
+  .ruby::before,
+  .python::before,
+  .php::before {
+    color: yellow;
+    position: absolute;
+    top: 0;
+    right: 0;
+    padding: 0.25rem;
+  }
+
+  .ruby::before {
+    content: "Ruby";
+  }
+  .bash::before {
+    content: "Bash";
+  }
+  .javascript::before,
+  .js::before {
+    content: "JavaScript";
+  }
+  .java::before {
+    content: "Java";
+  }
+  .cpp::before {
+    content: "C++";
+  }
+  .c::before {
+    content: "C";
+  }
+  .php::before {
+    content: "PHP";
+  }
+  .python::before {
+    content: "Python";
+  }
+
+  strong {
+    color: lime;
+  }
+
+  code {
+    color: cyan;
+    font-family: monospace-ui, monospace;
+    white-space: pre-wrap;
+  }
+
+  li::marker {
+    color: deeppink;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    color: deeppink;
+  }
+
+  hr {
+    color: yellow;
+  }
 }

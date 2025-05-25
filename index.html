@@ -13,8 +13,16 @@
   </head>
   <body>
     <h1>🪩 Prompt API SQLite</h1>
+
+    <form hidden class="active-assistant-form">
+      <fieldset>
+        <legend>Conversation chooser</legend>
+        <div class="assistant-container"></div>
+      </fieldset>
+    </form>
+
     <form hidden="" class="prompt-form">
-      <label for="prompt">Prompt</label>
+      <label for="prompt">Ask anything</label>
       <input
         id="prompt"
         name="prompt"
@@ -31,21 +39,17 @@
         </button>
       </p>
     </form>
-    <form class="active-assistant-form">
-      <fieldset>
-        <legend>Assistant chooser</legend>
-        <div class="assistant-container"></div>
-      </fieldset>
-      <button type="button" class="new-assistant">
-        🆕 Create new assistant
-      </button>
-    </form>
+
+    <button type="button" class="new-assistant">
+      🆕 Create new conversation
+    </button>
+
     <template id="assistant">
       <details name="assistants-accordion">
         <summary class="conversation-summary"></summary>
         <div>
           <button class="delete-conversation" type="button">
-            🗑️ Delete assistant
+            🗑️ Delete conversation
           </button>
           <strong>Tokens so far:</strong>
           <span class="tokens-so-far">0</span>
@@ -59,6 +63,7 @@
         </div>
       </details>
     </template>
+
     <template id="conversation">
       <li class="item"></li>
     </template>

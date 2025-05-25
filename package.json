@@ -13,10 +13,12 @@
   },
   "dependencies": {
     "@sqlite.org/sqlite-wasm": "^3.49.2-build1",
-    "browser-fs-access": "^0.37.0"
+    "browser-fs-access": "^0.37.0",
+    "dompurify": "^3.2.6",
+    "streaming-markdown": "^0.2.15"
   },
   "devDependencies": {
-    "vite": "^6.3.5",
-    "prettier": "^3.5.3"
+    "prettier": "^3.5.3",
+    "vite": "^6.3.5"
   }
 }

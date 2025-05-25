@@ -12,6 +12,8 @@ import {
   saveSession,
   deleteSession,
 } from './sqlite';
+import * as smd from 'streaming-markdown';
+import DOMPurify from 'dompurify';
 import { fileOpen } from 'browser-fs-access';
 
 if ('serviceWorker' in navigator && !location.href.includes('localhost')) {
@@ -106,7 +108,10 @@ fileOpenButton.addEventListener('click', async () => {
     await LanguageModel.params();
 
   const uuids = await getUUIDs();
-  if (uuids.length) promptForm.hidden = false;
+  if (uuids.length) {
+    promptForm.hidden = false;
+    activeAssistantForm.hidden = false;
+  }
 
   let isFirst = true;
   for (const uuid of uuids) {
@@ -144,9 +149,14 @@ fileOpenButton.addEventListener('click', async () => {
       const conversationClone = conversationTemplate.content.cloneNode(true);
       const item = conversationClone.querySelector('.item');
       item.classList.add(initialPrompt.role);
+      const renderer = smd.default_renderer(item);
+      const parser = smd.parser(renderer);
       for (const content of initialPrompt.content) {
         if (content.type === 'image') {
+          const p = document.createElement('p');
+          item.append(p);
           const img = document.createElement('img');
+          p.append(img);
           img.addEventListener('load', () => {
             URL.revokeObjectURL(img.src);
             sizeImage(img);
@@ -154,10 +164,11 @@ fileOpenButton.addEventListener('click', async () => {
           img.src = URL.createObjectURL(content.value);
           item.append(img);
         } else if (content.type === 'text') {
-          item.append(content.value);
+          smd.parser_write(parser, content.value);
         }
         conversationContainer.append(conversationClone);
       }
+      smd.parser_end(parser);
     }
   }
 })();
@@ -177,6 +188,9 @@ activeAssistantForm.addEventListener('click', async (e) => {
     const details = e.target.closest('details');
     const uuid = details.querySelector('[name="active-assistant"]').value;
     details.remove();
+    if (activeAssistantForm.querySelectorAll('details').length === 0) {
+      activeAssistantForm.hidden = true;
+    }
     await deleteSession(uuid);
   }
 });
@@ -199,6 +213,7 @@ const createAssistant = async (options = {}) => {
 
 newAssistantButton.addEventListener('click', async () => {
   const uuid = await createAssistant();
+  activeAssistantForm.hidden = false;
   const assistantClone = assistantTemplate.content.cloneNode(true);
   assistantClone.querySelector('.conversation-summary').textContent =
     'New conversation';
@@ -220,7 +235,7 @@ promptForm.addEventListener('submit', async (e) => {
   const textPrompt = promptInput.value.trim();
   if (!textPrompt) return;
   if (!activeAssistantForm.querySelector('details[open]')) {
-    alert('Select an active assistant first.');
+    alert('Select an active conversation first.');
     return;
   }
   const formData = new FormData(activeAssistantForm);
@@ -235,23 +250,29 @@ promptForm.addEventListener('submit', async (e) => {
   if (file) {
     userClone = conversationTemplate.content.cloneNode(true);
     userClone.querySelector('.item').classList.add('user');
-    userClone.querySelector('.item').textContent = textPrompt;
+    let p = document.createElement('p');
+    p.textContent = textPrompt;
+    userClone.querySelector('.item').append(p);
     conversationContainer.append(userClone);
 
     userClone = conversationTemplate.content.cloneNode(true);
     userClone.querySelector('.item').classList.add('user');
+    p = document.createElement('p');
     const img = document.createElement('img');
+    p.append(img);
     img.addEventListener('load', () => {
       URL.revokeObjectURL(img.src);
       sizeImage(img);
     });
     img.src = URL.createObjectURL(file);
-    userClone.querySelector('.item').append(img);
+    userClone.querySelector('.item').append(p);
     conversationContainer.append(userClone);
   } else {
     userClone = conversationTemplate.content.cloneNode(true);
     userClone.querySelector('.item').classList.add('user');
-    userClone.querySelector('.item').textContent = textPrompt;
+    const p = document.createElement('p');
+    p.textContent = textPrompt;
+    userClone.querySelector('.item').append(p);
     conversationContainer.append(userClone);
   }
 
@@ -282,10 +303,17 @@ promptForm.addEventListener('submit', async (e) => {
     item.classList.add('assistant');
     conversationContainer.append(assistantClone);
 
-    for await (const chunk of stream) {
-      item.append(chunk);
+    const renderer = smd.default_renderer(item);
+    const parser = smd.parser(renderer);
+    for await (let chunk of stream) {
       result += chunk;
+      DOMPurify.sanitize(result);
+      if (DOMPurify.removed.length) {
+        console.warn(DOMPurify.removed);
+      }
+      smd.parser_write(parser, chunk);
     }
+    smd.parser_end(parser);
 
     const details = conversationContainer.closest('details');
     details.querySelector('.tokens-so-far').textContent = assistant.inputUsage;
