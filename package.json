@@ -1,0 +1,21 @@
+{
+  "name": "prompt-api-sqlite",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "npm run dev",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "prettier": "prettier --write ."
+  },
+  "dependencies": {
+    "@sqlite.org/sqlite-wasm": "^3.49.2-build1",
+    "browser-fs-access": "^0.37.0"
+  },
+  "devDependencies": {
+    "vite": "^6.3.5",
+    "prettier": "^3.5.3"
+  }
+}

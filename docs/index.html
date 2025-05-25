@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎉</text></svg>"
+    />
+    <title>Prompt API SQLite</title>
+    <script type="module" crossorigin src="/assets/index-B1RiJpKt.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-C2XRzCE_.css">
+  </head>
+  <body>
+    <h1>Prompt API SQLite</h1>
+    <form hidden="" class="prompt-form">
+      <label for="prompt">Prompt</label>
+      <input
+        id="prompt"
+        name="prompt"
+        autocomplete="off"
+        class="prompt-input"
+      />
+      <button class="file-open-button" type="button">🖼️ Add image</button>
+      <button type="submit">✨ Send</button>
+      <button class="stop-button" type="button">🛑 Stop</button>
+      <p>
+        <img hidden class="image-preview" src="" alt="" />
+        <button hidden class="remove-image-button" type="button">
+          🗑️ Remove
+        </button>
+      </p>
+    </form>
+    <form class="active-assistant-form">
+      <fieldset>
+        <legend>Assistant chooser</legend>
+        <div class="assistant-container"></div>
+      </fieldset>
+      <button type="button" class="new-assistant">
+        🆕 Create new assistant
+      </button>
+    </form>
+    <template id="assistant">
+      <details name="assistants-accordion">
+        <summary class="conversation-summary"></summary>
+        <div>
+          <button class="delete-conversation" type="button">
+            🗑️ Delete assistant
+          </button>
+          <strong>Tokens so far:</strong>
+          <span class="tokens-so-far">0</span>
+          •
+          <strong>Tokens left:</strong>
+          <span class="tokens-left"></span>
+        </div>
+        <div>
+          <input type="radio" name="active-assistant" />
+          <ul class="conversation-container"></ul>
+        </div>
+      </details>
+    </template>
+    <template id="conversation">
+      <li class="item"></li>
+    </template>
+  </body>
+</html>
