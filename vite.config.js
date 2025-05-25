@@ -8,6 +8,7 @@ export default defineConfig({
       'Cross-Origin-Embedder-Policy': 'require-corp',
     },
   },
+  base: '/prompt-api-sqlite/',
   build: {
     outDir: './docs',
     emptyOutDir: true,
