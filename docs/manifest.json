@@ -1,0 +1,16 @@
+{
+  "name": "Prompt API SQLite",
+  "short_name": "Prompt API",
+  "display": "standalone",
+  "start_url": "/prompt-api-sqlite/",
+  "id": "/prompt-api-sqlite/",
+  "theme_color": "black",
+  "background_color": "black",
+  "icons": [
+    {
+      "src": "/prompt-api-sqlite/icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

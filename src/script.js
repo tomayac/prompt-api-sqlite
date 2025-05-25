@@ -14,7 +14,7 @@ import {
 } from './sqlite';
 import { fileOpen } from 'browser-fs-access';
 
-if ('serviceWorker' in navigator) {
+if ('serviceWorker' in navigator && !location.href.includes('localhost')) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
       .register(location.href.replace(/\/$/, '') + '/service-worker.js')
@@ -24,8 +24,9 @@ if ('serviceWorker' in navigator) {
           registration.scope,
         );
         registration.addEventListener('updatefound', () => location.reload());
-        if (registration.active && !navigator.serviceWorker.controller)
+        if (registration.active && !navigator.serviceWorker.controller) {
           location.reload();
+        }
       })
       .catch((error) => {
         console.error('Service Worker registration failed:', error);
