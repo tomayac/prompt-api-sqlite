@@ -78,66 +78,66 @@ const initializeSQLite = async () => {
 };
 
 const getUUIDs = async () => {
-  const uuids = [];
-  await promiser('exec', {
+  const response = await promiser('exec', {
     dbId,
-    sql: `SELECT uuid FROM sessions;`,
-    callback: (result) => {
-      if (!result.row) {
-        return;
-      }
-      uuids.push(result.row[0]);
-    },
+    sql: `SELECT uuid FROM sessions ORDER BY rowid;`,
+    rowMode: 'array',
   });
-  log(`SELECT uuid FROM sessions;`);
-  return uuids;
+  log(
+    `SELECT uuid FROM sessions ORDER BY rowid; -> Fetched ${response.result.resultRows.length} UUIDs`,
+  );
+  return response.result.resultRows.map((row) => row[0]);
 };
 
 const loadSession = async (uuid) => {
-  let conversationSummary;
-  await promiser('exec', {
+  const summaryResponse = await promiser('exec', {
     dbId,
-    sql: `SELECT conversation_summary FROM sessions WHERE uuid = '${uuid}';`,
-    callback: (result) => {
-      if (!result.row) {
-        return;
-      }
-      conversationSummary = result.row[0];
-    },
-  });
-  log(`SELECT conversation_summary FROM sessions WHERE uuid = '${uuid}';`);
-
-  const initialPrompts = [];
-  await promiser('exec', {
-    dbId,
-    sql: `SELECT role, content, image FROM prompts WHERE session_uuid = '${uuid}' ORDER BY id;`,
-    callback: (result) => {
-      if (!result.row) {
-        return;
-      }
-      if (result.row[2]) {
-        initialPrompts.push({
-          role: result.row[0],
-          content: [
-            {
-              type: 'image',
-              value: new Blob([new Uint8Array(result.row[2])], {
-                type: 'image/*',
-              }),
-            },
-          ],
-        });
-        return;
-      }
-      initialPrompts.push({
-        role: result.row[0],
-        content: [{ type: 'text', value: result.row[1] }],
-      });
-    },
+    sql: `SELECT conversation_summary FROM sessions WHERE uuid = $uuid;`,
+    bind: { $uuid: uuid },
+    rowMode: 'array',
   });
   log(
-    `SELECT role, content, image FROM prompts WHERE session_uuid = '${uuid}' ORDER BY id;`,
+    `SELECT conversation_summary FROM sessions WHERE uuid = $uuid; (bind: ${uuid})`,
   );
+
+  let conversationSummary = null;
+  if (summaryResponse.result.resultRows.length > 0) {
+    conversationSummary = summaryResponse.result.resultRows[0][0];
+  }
+
+  const promptsResponse = await promiser('exec', {
+    dbId,
+    sql: `SELECT role, content, image FROM prompts WHERE session_uuid = $uuid ORDER BY id;`,
+    bind: { $uuid: uuid },
+    rowMode: 'array',
+  });
+  log(
+    `SELECT role, content, image FROM prompts WHERE session_uuid = $uuid ORDER BY id; (bind: ${uuid})`,
+  );
+
+  const initialPrompts = promptsResponse.result.resultRows.map((row) => {
+    const role = row[0];
+    const textContent = row[1];
+    const imageBlobData = row[2];
+
+    if (imageBlobData && imageBlobData.length > 0) {
+      return {
+        role: role,
+        content: [
+          {
+            type: 'image',
+            value: new Blob([imageBlobData], { type: 'image/*' }),
+          },
+        ],
+      };
+    } else {
+      return {
+        role: role,
+        content: [{ type: 'text', value: textContent }],
+      };
+    }
+  });
+
   return {
     conversationSummary,
     initialPrompts,
@@ -147,44 +147,47 @@ const loadSession = async (uuid) => {
 const saveSession = async (uuid, options) => {
   await promiser('exec', {
     dbId,
-    sql: `REPLACE INTO sessions (uuid, conversation_summary) VALUES ('${uuid}', '${options.conversationSummary.replace(/'/g, "''")}');`,
+    sql: `REPLACE INTO sessions (uuid, conversation_summary) VALUES ($uuid, $summary);`,
+    bind: { $uuid: uuid, $summary: options.conversationSummary },
   });
   log(
-    `REPLACE INTO sessions (uuid, conversation_summary) VALUES ('${uuid}', '${options.conversationSummary.replace(/'/g, "''")}');`,
+    `REPLACE INTO sessions (uuid, conversation_summary) VALUES ($uuid, $summary); (bind: ${uuid}, ${options.conversationSummary})`,
   );
+
   await promiser('exec', {
     dbId,
-    sql: `DELETE FROM prompts WHERE session_uuid = '${uuid}';`,
+    sql: `DELETE FROM prompts WHERE session_uuid = $uuid;`,
+    bind: { $uuid: uuid },
   });
-  log(`DELETE FROM prompts WHERE session_uuid = '${uuid}';`);
+  log(`DELETE FROM prompts WHERE session_uuid = $uuid; (bind: ${uuid})`);
 
   for (const prompt of options.initialPrompts) {
-    for (const content of prompt.content) {
-      if (content.type === 'image') {
-        const uint8 = await blobToUint8Array(content.value);
+    for (const contentPart of prompt.content) {
+      if (contentPart.type === 'image' && contentPart.value instanceof Blob) {
+        const imageBytes = await blobToUint8Array(contentPart.value);
         await promiser('exec', {
           dbId,
-          sql: `INSERT INTO prompts (session_uuid, role, content, image)
-                VALUES ($uuid, $role, $content, $image);`,
+          sql: `INSERT INTO prompts (session_uuid, role, image)
+                VALUES ($uuid, $role, $image);`,
           bind: {
             $uuid: uuid,
             $role: prompt.role,
-            $content: null,
-            $image: uint8,
+            $image: imageBytes,
           },
         });
-        log(
-          `INSERT INTO prompts (session_uuid, role, content, image) VALUES ($uuid, $role, $content, $image);`,
-        );
-      } else {
+        log(`INSERT INTO prompts (session_uuid, role, image) ... (image)`);
+      } else if (contentPart.type === 'text') {
         await promiser('exec', {
           dbId,
-          sql: `INSERT INTO prompts (session_uuid, role, content, image)
-                    VALUES ('${uuid}', '${prompt.role}', '${content.value.replace(/'/g, "''")}', NULL);`,
+          sql: `INSERT INTO prompts (session_uuid, role, content)
+                VALUES ($uuid, $role, $content);`,
+          bind: {
+            $uuid: uuid,
+            $role: prompt.role,
+            $content: contentPart.value,
+          },
         });
-        log(
-          `INSERT INTO prompts (session_uuid, role, content, image) VALUES ('${uuid}', '${prompt.role}', '${content.value.replace(/'/g, "''")}', NULL);`,
-        );
+        log(`INSERT INTO prompts (session_uuid, role, content) ... (text)`);
       }
     }
   }
@@ -193,16 +196,19 @@ const saveSession = async (uuid, options) => {
 const deleteSession = async (uuid) => {
   await promiser('exec', {
     dbId,
-    sql: `DELETE FROM prompts WHERE session_uuid = '${uuid}';\nDELETE FROM sessions WHERE uuid = '${uuid}';`,
+    sql: `DELETE FROM sessions WHERE uuid = $uuid;`,
+    bind: { $uuid: uuid },
   });
-  console.log(
-    `DELETE FROM prompts WHERE session_uuid = '${uuid}';\nDELETE FROM sessions WHERE uuid = '${uuid}';`,
+  log(
+    `DELETE FROM sessions WHERE uuid = $uuid; (bind: ${uuid}) -- Prompts deleted via CASCADE`,
   );
 };
 
 const blobToUint8Array = async (blob) => {
+  if (!(blob instanceof Blob)) {
+    throw new TypeError('Expected a Blob object');
+  }
   const arrayBuffer = await blob.arrayBuffer();
   return new Uint8Array(arrayBuffer);
 };
-
 export { initializeSQLite, getUUIDs, loadSession, saveSession, deleteSession };
