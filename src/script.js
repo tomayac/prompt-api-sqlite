@@ -71,6 +71,53 @@ const sizeImage = (img) => {
   img.style.height = '100px';
 };
 
+const appendMessage = (
+  targetContainer,
+  role,
+  messageContents,
+  useStreamingMarkdownForText = false,
+) => {
+  const conversationClone = conversationTemplate.content.cloneNode(true);
+  const item = conversationClone.querySelector('.item');
+  item.classList.add(role);
+
+  let parser = null;
+
+  if (useStreamingMarkdownForText) {
+    const renderer = smd.default_renderer(item);
+    parser = smd.parser(renderer);
+  }
+
+  for (const content of messageContents) {
+    if (content.type === 'image' && content.value) {
+      const p = document.createElement('p');
+      const img = document.createElement('img');
+      p.append(img);
+
+      img.addEventListener('load', () => {
+        URL.revokeObjectURL(img.src);
+        sizeImage(img);
+      });
+      img.src = URL.createObjectURL(content.value);
+      item.append(p);
+    } else if (content.type === 'text') {
+      if (useStreamingMarkdownForText) {
+        smd.parser_write(parser, content.value);
+      } else {
+        const p = document.createElement('p');
+        p.textContent = content.value;
+        item.append(p);
+      }
+    }
+  }
+
+  if (parser) {
+    smd.parser_end(parser);
+  }
+
+  targetContainer.append(conversationClone);
+};
+
 removeImageButton.addEventListener('click', () => {
   imagePreview.hidden = true;
   imagePreview.src = '';
@@ -153,31 +200,12 @@ fileOpenButton.addEventListener('click', async () => {
         if (initialPrompt.role === 'system') {
           continue;
         }
-
-        const conversationClone = conversationTemplate.content.cloneNode(true);
-        const item = conversationClone.querySelector('.item');
-        item.classList.add(initialPrompt.role);
-        const renderer = smd.default_renderer(item);
-        const parser = smd.parser(renderer);
-
-        for (const content of initialPrompt.content) {
-          if (content.type === 'image') {
-            const p = document.createElement('p');
-            item.append(p);
-            const img = document.createElement('img');
-            p.append(img);
-            img.addEventListener('load', () => {
-              URL.revokeObjectURL(img.src);
-              sizeImage(img);
-            });
-            img.src = URL.createObjectURL(content.value);
-          } else if (content.type === 'text') {
-            smd.parser_write(parser, content.value);
-          }
-        }
-
-        conversationContainer.append(conversationClone);
-        smd.parser_end(parser);
+        appendMessage(
+          conversationContainer,
+          initialPrompt.role,
+          initialPrompt.content,
+          true,
+        );
       }
     }
   } catch (err) {
@@ -264,39 +292,20 @@ promptForm.addEventListener('submit', async (e) => {
     `input[value="${uuid}"] + .conversation-container`,
   );
 
-  let result = '';
-  let userClone;
-  let item;
-  if (file) {
-    userClone = conversationTemplate.content.cloneNode(true);
-    item = userClone.querySelector('.item');
-    item.classList.add('user');
-    let p = document.createElement('p');
-    p.textContent = textPrompt;
-    item.append(p);
-    conversationContainer.append(userClone);
+  appendMessage(
+    conversationContainer,
+    'user',
+    [{ type: 'text', value: textPrompt }],
+    false,
+  );
 
-    userClone = conversationTemplate.content.cloneNode(true);
-    item = userClone.querySelector('.item');
-    item.classList.add('user');
-    p = document.createElement('p');
-    const img = document.createElement('img');
-    p.append(img);
-    img.addEventListener('load', () => {
-      URL.revokeObjectURL(img.src);
-      sizeImage(img);
-    });
-    img.src = URL.createObjectURL(file);
-    item.append(p);
-    conversationContainer.append(userClone);
-  } else {
-    userClone = conversationTemplate.content.cloneNode(true);
-    item = userClone.querySelector('.item');
-    item.classList.add('user');
-    const p = document.createElement('p');
-    p.textContent = textPrompt;
-    item.append(p);
-    conversationContainer.append(userClone);
+  if (file) {
+    appendMessage(
+      conversationContainer,
+      'user',
+      [{ type: 'image', value: file }],
+      false,
+    );
   }
 
   try {
@@ -328,6 +337,7 @@ promptForm.addEventListener('submit', async (e) => {
 
     const renderer = smd.default_renderer(item);
     const parser = smd.parser(renderer);
+    let result = '';
     for await (let chunk of stream) {
       result += chunk;
       DOMPurify.sanitize(result);
@@ -362,6 +372,7 @@ promptForm.addEventListener('submit', async (e) => {
     imagePreview.src = '';
     removeImageButton.hidden = true;
     promptInput.focus();
+    await saveSession(uuid, options);
 
     const summaryAssistant = await self.LanguageModel.create(options);
     const summaryStream = summaryAssistant.promptStreaming(
