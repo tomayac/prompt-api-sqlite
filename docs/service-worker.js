@@ -1,3 +1,8 @@
+/**
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 const CACHE_NAME = 'auto-cache-v1';
 
 self.addEventListener('install', () => {

@@ -1,3 +1,8 @@
+/**
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { sqlite3Worker1Promiser } from '@sqlite.org/sqlite-wasm';
 
 const log = console.log;
