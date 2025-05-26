@@ -196,6 +196,13 @@ const saveSession = async (uuid, options) => {
 const deleteSession = async (uuid) => {
   await promiser('exec', {
     dbId,
+    sql: `DELETE FROM prompts WHERE session_uuid = $uuid;`,
+    bind: { $uuid: uuid },
+  });
+  log(`DELETE FROM prompts WHERE session_uuid = $uuid; (bind: ${uuid})`);
+
+  await promiser('exec', {
+    dbId,
     sql: `DELETE FROM sessions WHERE uuid = $uuid;`,
     bind: { $uuid: uuid },
   });
