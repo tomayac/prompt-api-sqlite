@@ -52,6 +52,8 @@ const assistants = {};
 let controller = null;
 let file = null;
 
+const NEW_CONVERSATION = 'New conversation';
+
 stopButton.addEventListener('click', () => {
   controller?.abort();
 });
@@ -63,10 +65,10 @@ const sizeImage = (img) => {
   if (aspectRatio > 1) {
     img.style.width = '100px';
     img.style.height = 'auto';
-  } else {
-    img.style.width = 'auto';
-    img.style.height = '100px';
+    return;
   }
+  img.style.width = 'auto';
+  img.style.height = '100px';
 };
 
 removeImageButton.addEventListener('click', () => {
@@ -97,85 +99,97 @@ fileOpenButton.addEventListener('click', async () => {
 });
 
 (async function init() {
-  if (!('LanguageModel' in self)) {
-    document.body.append("😿 This browser doesn't support the Prompt API.");
-    return;
-  }
+  try {
+    if (!('LanguageModel' in self)) {
+      document.body.append("😿 This browser doesn't support the Prompt API.");
+      return;
+    }
 
-  await initializeSQLite();
+    await initializeSQLite();
 
-  const { defaultTopK: topK, defaultTemperature: temperature } =
-    await LanguageModel.params();
+    const uuids = await getUUIDs();
+    if (!uuids.length) {
+      return;
+    }
 
-  const uuids = await getUUIDs();
-  if (uuids.length) {
     promptForm.hidden = false;
     activeAssistantForm.hidden = false;
-  }
 
-  let isFirst = true;
-  for (const uuid of uuids) {
-    const session = await loadSession(uuid);
-    const options = {
-      initialPrompts: session.initialPrompts,
-      topK,
-      temperature,
-      conversationSummary: session.conversationSummary,
-      expectedInputs: [{ type: 'text' }, { type: 'image' }],
-    };
-    const assistant = await self.LanguageModel.create(options);
-    const { inputQuota, inputUsage } = assistant;
-    assistants[uuid] = { assistant, options };
+    const { defaultTopK: topK, defaultTemperature: temperature } =
+      await LanguageModel.params();
 
-    const assistantClone = assistantTemplate.content.cloneNode(true);
-    if (isFirst) {
-      assistantClone.querySelector('details').open = true;
-      assistantClone.querySelector('input').checked = true;
-      isFirst = false;
-    }
-    assistantClone.querySelector('.conversation-summary').textContent =
-      options.conversationSummary;
-    assistantClone.querySelector('input').value = uuid;
-    const conversationContainer = assistantClone.querySelector(
-      '.conversation-container',
-    );
-    assistantClone.querySelector('.tokens-so-far').textContent = inputUsage;
-    assistantClone.querySelector('.tokens-left').textContent =
-      inputQuota - assistant.inputUsage;
-    assistantContainer.append(assistantClone);
+    let isFirst = true;
+    for (const uuid of uuids) {
+      const session = await loadSession(uuid);
+      const options = {
+        initialPrompts: session.initialPrompts,
+        topK,
+        temperature,
+        conversationSummary: session.conversationSummary,
+        expectedInputs: [{ type: 'text' }, { type: 'image' }],
+      };
+      const assistant = await self.LanguageModel.create(options);
+      const { inputQuota, inputUsage } = assistant;
+      assistants[uuid] = { assistant, options };
 
-    for (const initialPrompt of options.initialPrompts) {
-      if (initialPrompt.role === 'system') continue;
-      const conversationClone = conversationTemplate.content.cloneNode(true);
-      const item = conversationClone.querySelector('.item');
-      item.classList.add(initialPrompt.role);
-      const renderer = smd.default_renderer(item);
-      const parser = smd.parser(renderer);
-      for (const content of initialPrompt.content) {
-        if (content.type === 'image') {
-          const p = document.createElement('p');
-          item.append(p);
-          const img = document.createElement('img');
-          p.append(img);
-          img.addEventListener('load', () => {
-            URL.revokeObjectURL(img.src);
-            sizeImage(img);
-          });
-          img.src = URL.createObjectURL(content.value);
-          item.append(img);
-        } else if (content.type === 'text') {
-          smd.parser_write(parser, content.value);
-        }
-        conversationContainer.append(conversationClone);
+      const assistantClone = assistantTemplate.content.cloneNode(true);
+      if (isFirst) {
+        assistantClone.querySelector('details').open = true;
+        assistantClone.querySelector('input').checked = true;
+        isFirst = false;
       }
-      smd.parser_end(parser);
+      assistantClone.querySelector('.conversation-summary').textContent =
+        options.conversationSummary;
+      assistantClone.querySelector('input').value = uuid;
+      const conversationContainer = assistantClone.querySelector(
+        '.conversation-container',
+      );
+      assistantClone.querySelector('.tokens-so-far').textContent = inputUsage;
+      assistantClone.querySelector('.tokens-left').textContent =
+        inputQuota - assistant.inputUsage;
+      assistantContainer.append(assistantClone);
+
+      for (const initialPrompt of options.initialPrompts) {
+        if (initialPrompt.role === 'system') {
+          continue;
+        }
+
+        const conversationClone = conversationTemplate.content.cloneNode(true);
+        const item = conversationClone.querySelector('.item');
+        item.classList.add(initialPrompt.role);
+        const renderer = smd.default_renderer(item);
+        const parser = smd.parser(renderer);
+
+        for (const content of initialPrompt.content) {
+          if (content.type === 'image') {
+            const p = document.createElement('p');
+            item.append(p);
+            const img = document.createElement('img');
+            p.append(img);
+            img.addEventListener('load', () => {
+              URL.revokeObjectURL(img.src);
+              sizeImage(img);
+            });
+            img.src = URL.createObjectURL(content.value);
+          } else if (content.type === 'text') {
+            smd.parser_write(parser, content.value);
+          }
+        }
+
+        conversationContainer.append(conversationClone);
+        smd.parser_end(parser);
+      }
     }
+  } catch (err) {
+    console.error(err.name, err.message);
   }
 })();
 
 activeAssistantForm.addEventListener('click', async (e) => {
   const nodeName = e.target.nodeName.toLowerCase();
-  if (nodeName !== 'summary' && nodeName !== 'button') return;
+  if (nodeName !== 'summary' && nodeName !== 'button') {
+    return;
+  }
 
   if (nodeName === 'summary') {
     setTimeout(() => {
@@ -203,7 +217,7 @@ const createAssistant = async (options = {}) => {
       content: [{ type: 'text', value: 'You are a helpful assistant.' }],
     },
   ];
-  options.conversationSummary ||= 'New conversation';
+  options.conversationSummary ||= NEW_CONVERSATION;
   options.expectedInputs ||= [{ type: 'text' }, { type: 'image' }];
   const assistant = await self.LanguageModel.create(options);
   assistants[uuid] = { assistant, options };
@@ -216,7 +230,8 @@ newAssistantButton.addEventListener('click', async () => {
   activeAssistantForm.hidden = false;
   const assistantClone = assistantTemplate.content.cloneNode(true);
   assistantClone.querySelector('.conversation-summary').textContent =
-    'New conversation';
+    NEW_CONVERSATION;
+
   assistantClone.querySelector('input').value = uuid;
   assistantContainer.append(assistantClone);
   assistantContainer
@@ -233,11 +248,15 @@ newAssistantButton.addEventListener('click', async () => {
 promptForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const textPrompt = promptInput.value.trim();
-  if (!textPrompt) return;
+  if (!textPrompt) {
+    return;
+  }
+
   if (!activeAssistantForm.querySelector('details[open]')) {
     alert('Select an active conversation first.');
     return;
   }
+
   const formData = new FormData(activeAssistantForm);
   const uuid = formData.get('active-assistant');
   const { assistant, options } = assistants[uuid];
@@ -247,16 +266,19 @@ promptForm.addEventListener('submit', async (e) => {
 
   let result = '';
   let userClone;
+  let item;
   if (file) {
     userClone = conversationTemplate.content.cloneNode(true);
-    userClone.querySelector('.item').classList.add('user');
+    item = userClone.querySelector('.item');
+    item.classList.add('user');
     let p = document.createElement('p');
     p.textContent = textPrompt;
-    userClone.querySelector('.item').append(p);
+    item.append(p);
     conversationContainer.append(userClone);
 
     userClone = conversationTemplate.content.cloneNode(true);
-    userClone.querySelector('.item').classList.add('user');
+    item = userClone.querySelector('.item');
+    item.classList.add('user');
     p = document.createElement('p');
     const img = document.createElement('img');
     p.append(img);
@@ -265,14 +287,15 @@ promptForm.addEventListener('submit', async (e) => {
       sizeImage(img);
     });
     img.src = URL.createObjectURL(file);
-    userClone.querySelector('.item').append(p);
+    item.append(p);
     conversationContainer.append(userClone);
   } else {
     userClone = conversationTemplate.content.cloneNode(true);
-    userClone.querySelector('.item').classList.add('user');
+    item = userClone.querySelector('.item');
+    item.classList.add('user');
     const p = document.createElement('p');
     p.textContent = textPrompt;
-    userClone.querySelector('.item').append(p);
+    item.append(p);
     conversationContainer.append(userClone);
   }
 
