@@ -125,6 +125,12 @@ removeImageButton.addEventListener('click', () => {
   file = null;
 });
 
+imagePreview.addEventListener('load', () => {
+  URL.revokeObjectURL(imagePreview.src);
+  sizeImage(imagePreview);
+  imagePreview.hidden = false;
+});
+
 fileOpenButton.addEventListener('click', async () => {
   file = await fileOpen({
     multiple: false,
@@ -137,11 +143,6 @@ fileOpenButton.addEventListener('click', async () => {
     return;
   }
   removeImageButton.hidden = false;
-  imagePreview.addEventListener('load', () => {
-    URL.revokeObjectURL(imagePreview.src);
-    sizeImage(imagePreview);
-    imagePreview.hidden = false;
-  });
   imagePreview.src = URL.createObjectURL(file);
 });
 
@@ -340,13 +341,14 @@ promptForm.addEventListener('submit', async (e) => {
     let result = '';
     for await (let chunk of stream) {
       result += chunk;
-      DOMPurify.sanitize(result);
-      if (DOMPurify.removed.length) {
-        console.warn(DOMPurify.removed);
-      }
       smd.parser_write(parser, chunk);
     }
     smd.parser_end(parser);
+
+    const sanitizedResult = DOMPurify.sanitize(result);
+    if (DOMPurify.removed.length) {
+      console.warn(DOMPurify.removed);
+    }
 
     const details = conversationContainer.closest('details');
     details.querySelector('.tokens-so-far').textContent = assistant.inputUsage;
@@ -356,7 +358,10 @@ promptForm.addEventListener('submit', async (e) => {
     if (!file) {
       options.initialPrompts.push(
         { role: 'user', content: [{ type: 'text', value: textPrompt }] },
-        { role: 'assistant', content: [{ type: 'text', value: result }] },
+        {
+          role: 'assistant',
+          content: [{ type: 'text', value: sanitizedResult }],
+        },
       );
     } else {
       options.initialPrompts.push(

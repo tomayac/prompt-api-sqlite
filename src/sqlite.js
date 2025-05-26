@@ -206,9 +206,7 @@ const deleteSession = async (uuid) => {
     sql: `DELETE FROM sessions WHERE uuid = $uuid;`,
     bind: { $uuid: uuid },
   });
-  log(
-    `DELETE FROM sessions WHERE uuid = $uuid; (bind: ${uuid}) -- Prompts deleted via CASCADE`,
-  );
+  log(`DELETE FROM sessions WHERE uuid = $uuid; (bind: ${uuid})`);
 };
 
 const blobToUint8Array = async (blob) => {
